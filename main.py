@@ -1,104 +1,75 @@
-from pathlib import Path
 import tkinter as tk
-from PIL import Image, ImageTk
+from tkinter import Tk
+import pygame
+from audio_manager import AudioManager
+from views.inicio import InicioFrame
+from views.lecciones import LeccionesFrame
+from views.abecedario import AbecedarioFrame
+from views.frases import FrasesFrame
 
-
-class MainApp(tk.Tk):
+class MainApp(Tk):
     def __init__(self):
         super().__init__()
-        self.geometry("1440x1024")
-        self.configure(bg="#FFFFFF")
-        self.title("LSE Learning System")
-        self.resizable(False, False)
+        self.audio_manager = AudioManager()
+        self._configure_window()
+        self._setup_ui()
+        self._setup_audio()
 
-        # Contenedor principal
+    def _configure_window(self):
+        self.width = 1440
+        self.height = 1024
+        self.title("Sistema de Aprendizaje LSE")
+        self.resizable(False, False)
+        self._center_on_screen()
+
+    def _center_on_screen(self):
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width // 2) - (self.width // 2)
+        y = (screen_height // 2) - (self.height // 2)
+        self.geometry(f"{self.width}x{self.height}+{x}+{y}")
+
+    def _setup_audio(self):
+        if self.audio_manager.load_ambient_music():
+            self.audio_manager.play_ambient_music()
+            self.after(100, self._update_audio)
+        else:
+            print("Error: Archivo de música ambiental no encontrado")
+
+    def _setup_ui(self):
         self.container = tk.Frame(self)
         self.container.pack(expand=True, fill="both")
-
-        # Diccionario de frames
         self.frames = {}
-
-        # Inicializar frames
-        for F in (InicioFrame, LeccionesFrame):
-            frame = F(self.container, self)
-            self.frames[F.__name__] = frame
-            frame.grid(row=0, column=0, sticky="nsew")  # Usar grid para tkraise
-
+        self._register_frames()
         self.show_frame("InicioFrame")
 
+    def _register_frames(self):
+        frames = {
+            "InicioFrame": InicioFrame,
+            "LeccionesFrame": LeccionesFrame,
+            "AbecedarioFrame": AbecedarioFrame,
+            "FrasesFrame": FrasesFrame
+        }
+
+        for name, frame_class in frames.items():
+            frame_instance = frame_class(self.container, self)
+            self.frames[name] = frame_instance
+            frame_instance.grid(row=0, column=0, sticky="nsew")
+
     def show_frame(self, frame_name):
-        frame = self.frames[frame_name]
-        frame.tkraise()
-
-
-class BaseFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.assets_path = Path(__file__).parent / "assets" / self.get_assets_folder()
-        self.images = {}
-        self.load_assets()
-        self.create_widgets()
-
-    def get_assets_folder(self):
-        return self.__class__.__name__.replace("Frame", "").lower()
-
-    def load_assets(self):
-        # Cargar imagen de fondo
-        fondo_path = self.assets_path / f"{self.get_assets_folder()}_panel.png"
-        if fondo_path.exists():
-            img = Image.open(fondo_path)
-            self.images["background"] = ImageTk.PhotoImage(img.resize((1440, 1024)))
+        if frame_name in self.frames:
+            self.frames[frame_name].tkraise()
+            self.frames[frame_name].on_show()
         else:
-            raise FileNotFoundError(f"Fondo no encontrado: {fondo_path}")
+            raise ValueError(f"Frame no registrado: {frame_name}")
 
+    def _update_audio(self):
+        self.audio_manager.check_channels()
+        self.after(100, self._update_audio)
 
-class InicioFrame(BaseFrame):
-    def create_widgets(self):
-        self.canvas = tk.Canvas(self, bg="#FFFFFF", height=1024, width=1440)
-        self.canvas.pack(expand=True, fill="both")
-        self.canvas.create_image(720, 512, image=self.images["background"])
-
-        # Botón Rename
-        button_img = ImageTk.PhotoImage(Image.open(self.assets_path / "rename.png"))
-        self.button = tk.Button(
-            self.canvas,
-            image=button_img,
-            borderwidth=0,
-            highlightthickness=0,
-            command=lambda: self.controller.show_frame("LeccionesFrame"),
-            relief="flat"
-        )
-        self.button.image = button_img
-        self.button.place(x=150, y=572, width=434, height=113)
-
-
-class LeccionesFrame(BaseFrame):
-    def create_widgets(self):
-        self.canvas = tk.Canvas(self, bg="#FFFFFF", height=1024, width=1440)
-        self.canvas.pack(expand=True, fill="both")
-        self.canvas.create_image(720, 512, image=self.images["background"])
-
-        # Cargar botones
-        buttons = [
-            ("leccion_abecedario", 180, 398),
-            ("leccion_vocal", 560, 398),
-            ("leccion_frase", 933, 398)
-        ]
-
-        for name, x, y in buttons:
-            img_path = self.assets_path / f"{name}.png"
-            btn_img = ImageTk.PhotoImage(Image.open(img_path))
-            btn = tk.Button(
-                self.canvas,
-                image=btn_img,
-                borderwidth=0,
-                highlightthickness=0,
-                relief="flat"
-            )
-            btn.image = btn_img
-            btn.place(x=x, y=y, width=300, height=300)
-
+    def destroy(self):
+        pygame.quit()
+        super().destroy()
 
 if __name__ == "__main__":
     app = MainApp()
