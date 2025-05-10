@@ -1,0 +1,6 @@
+pygame
+pillow
+opencv-python
+numpy
+mediapipe
+tensorflow
